@@ -7,7 +7,7 @@ import logging
 import time
 from pyspark import SparkConf, SparkContext, SQLContext
 from pyspark.sql import SparkSession
-
+sys.path.insert(1, '/home/ubuntu/config/')
 from config import (AWS_ACCESS_ID, AWS_ACCESS_KEY)
 
 # ===== SPARK Configs =====
