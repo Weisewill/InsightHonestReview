@@ -40,7 +40,7 @@ s3 = boto3.client('s3',
 
 # ==== Logging =====
 TS = time.strftime("%Y-%m-%d:%H-%M-%S")
-log_dir = "./logs/"
+log_dir = "home/ubuntu/logs/"
 if not os.path.exists(log_dir):
     os.mkdir(log_dir)
 
