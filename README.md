@@ -12,5 +12,6 @@
 ## Dataset
 
 ## Tech stack
+![](/fig/HonestReview_tech_stack.jpg)
 
 ## Challenges
