@@ -9,7 +9,7 @@ Sometimes we have short weekends or holidays not enough for trips to facinating 
   - Obtain statistics such as how many reviews and what percent are positive
 
 ## Future directions
-  - Collect more data, eg. Twitter
+  - Collect more data from other sources, eg. Twitter
   - Customize NLP pipeline and re-train ML model
   - Add user inputs such as upvote on reviews
   - Could apply to other kinds of products, eg. movie, apparel, PC, etc...
