@@ -8,7 +8,7 @@ Sometimes we have short weekends and holidays not enough for trip to Iceland or 
   - Perform sentiment analysis to identify positive and negative reviews
   - Obtain statistics such as how many reviews and what percent are positive
 
-## Future directions
+## Future direction
   - Collect more data, eg. Twitter
   - Customize NLP pipeline and re-train ML model
   - Add user inputs such as upvote on reviews
@@ -19,14 +19,14 @@ Sometimes we have short weekends and holidays not enough for trip to Iceland or 
   - Display Ads on relavent or competing games
   - Investigate users' opinions on product reviews and send feedback to companies who seek consult on their products
   
-## Datasets
+## Dataset
   - Amazon reviews (S3 public bucket)
   - Reddit (https://files.pushshift.io/reddit/comments/)
 
 ## Tech stack
 ![](/fig/HonestReview_tech_stack.jpg)
 
-## Challenges
+## Challenge
   - Clean large amount of data, over 3 TB after decompression
   - Process text data to extrct useful informations, eg. finding the name of the product and count # of words in a review
   - Perform sentiment analysis using natural language processing pipeline
