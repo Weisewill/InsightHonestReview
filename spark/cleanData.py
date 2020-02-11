@@ -21,12 +21,12 @@ from pyspark.sql import SQLContext
 conf = (SparkConf() \
         .setAppName("Process") \
         .set("spark.executor.instances", "4") \
-        .set("spark.driver.cores", 8) \
-        .set("spark.executor.memory", "6g"))
+        .set("spark.executor.memory", "6g") \
+        ) 
 sc = SparkContext(conf=conf)
 #sc._jsc.hadoopConfiguration().set("fs.s3a.awsAccessKeyId", AWS_ACCESS_ID)
 #sc._jsc.hadoopConfiguration().set("fs.s3a.awsSecretAccessKey", AWS_ACCESS_KEY)
-# sc.setLogLevel("ERROR")
+sc.setLogLevel("ERROR")
 # SqlContext
 # === Set Spark Configs ===
 spark = SparkSession.builder.appName('Upload data to S3').getOrCreate()
@@ -40,7 +40,7 @@ s3 = boto3.client('s3',
 
 # ==== Logging =====
 TS = time.strftime("%Y-%m-%d:%H-%M-%S")
-log_dir = "home/ubuntu/logs/"
+log_dir = "/home/ubuntu/logs/"
 if not os.path.exists(log_dir):
     os.mkdir(log_dir)
 
