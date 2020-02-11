@@ -36,45 +36,57 @@ spark = sparknlp.start()
 spark.conf.set("spark.sql.session.timeZone", "America/Los_Angeles")
 
 
-def addColumnToDF(df, cols, idx, newType):
-    # newType : type for the new column, i for int or c for char
-    if newType == "i":
-        df = df.withColumn(cols[idx], lit(0))
-    elif newType == "c":
-        df = df.withColumn(cols[idx], lit("Null")) 
-    return df
-
 def wordCount(df, colName):
-    # return the word count of a column
+    """
+    Args:
+        df: a DataFrame
+        colName: a column for counting the number of words in it
+    Returns:
+        df: a DataFrame with one more column word_count of colName 
+    """
     return df.withColumn('word_count', f.size(f.split(f.col(colName), ' ')))
 
 def findName(df, names, table):
-    # Add a new column "name"
+    """
+    Steps:
+        1. Add a new column called 'name' 
+        2. Lower the whole text body of the column which are searched to label the product name
+        3. Loop over names to find the product name asscociated to the review/comment 
+    Args:
+        df: a DataFrame
+        names: a list of strings for the product names
+        table: 'amazon_reviews' or 'reddit-comments' to specify which table to work on
+    Returns:
+        df: a DataFrame with one more column 'name' for the product name
+    """
     df = df.withColumn("name", lit("Null"))
     if table == "amazon_reviews":
-        # Creates a DataFrame having a single column named "line"
         df = df.rdd.toDF(["product_title", "review_body", "name"])
         df_line = df.select("product_title", "review_body", "name")
         df_line = df_line.withColumn("product_title", f.lower(f.col("product_title")))
         colName = "product_title"
     elif table == "reddit_comments":
-        # Creates a DataFrame having a single column named "line"
         df = df.rdd.toDF(["body", "name"])
         df_line = df.select("body", "name")
         df_line = df_line.withColumn("body", f.lower(f.col("body")))
         colName = "body"
-    # Find the names in the commente/reviews
     for name in names:
         print("Finding name: " + name)
         df_line = df_line.withColumn("name", when(col(colName).like("%"+name+"%"), name).otherwise(df_line.name))
-    #name = names
-    #print("Finding name: " + name)
-    #df_line = df_line.withColumn("name", when(col("product_title").like("%"+name+"%"), name).otherwise(df_line.name))
-    # Only select those with names
     df_line = df_line.filter(df_line.name != "Null")
     return df_line
 
 def readData(path, cols, dataType):
+    """
+    Read data from sources.
+    Args:
+        path: path to the source
+        cols: columns to select
+        dataType: data type of the source, CSV or parquet
+    Returns:
+        df: a DataFrame
+    """
+    
     if dataType == "parquet":
         df = sqlContext.read.parquet(path)
     elif dataType == "CSV":
@@ -85,13 +97,20 @@ def readData(path, cols, dataType):
                 .option('inferSchema', 'true')\
                 .load(path)
     df = df.select(cols)
-    #df.show()
-    #print(df.count())
     return df
 
 def getNameList(df, num, length):
-    # Get the first num popular games
-    # Sorted by Name string length
+    """
+    Steps:
+        1. Get the first num popular games
+        2. Sort the list by string length of the Names in ascending order
+    Args: 
+        df: input DataFrame
+        num: # of name to pick
+        length: length limit for the names
+    Return:
+        A list of names
+    """
     df_pandas = df.where( f.length("Name")  <= length ).toPandas()[0:num]
     idx = df_pandas.Name.str.len().sort_values().index
     df_pandas = df_pandas.reindex(idx)
@@ -99,6 +118,17 @@ def getNameList(df, num, length):
     return [row for row in df_pandas.Name]
 
 def calculateScore(col1, col2):
+    """
+    Calculate the sentiment analysis score
+
+    Args:
+        col1: a string could be 'positive' or 'negative' sentiment
+        col2: a string for the confidence of the sentiment, need to convert to float
+
+    Returns:
+        Score
+
+    """
     score = 0
     count = 0
     for item1, item2 in zip(col1, col2):
@@ -116,7 +146,18 @@ def calculateScore(col1, col2):
     return score / float(count) if count > 0 else 0.0
 
 def sentimentAnalysis(df, show, table):
-
+    """
+    Perform sentiment analysis
+    Steps:
+        1. Load pre-trained NLP model pipeline
+        2. Transform the text body and create a new column called sentiment
+    Args:
+        df: input DataFrame
+        show: option for showing df_entiment
+        table: 'amazon_reviews' or 'reddit-comments' to specify which table to work on
+    Returns:
+        df_sentiment: a DataFrame with sentiment
+    """
     if table == "amazon_reviews":
         colName = "review_body"
     elif table == "reddit_comments":
@@ -154,11 +195,15 @@ def sentimentAnalysis(df, show, table):
 
 def saveToDB(df, mode, table):
     """
-    mode options 
-    append: Contents of this SparkDataFrame are expected to be appended to existing data.
-    overwrite: Existing data is expected to be overwritten by the contents of this SparkDataFrame.
-    error: An exception is expected to be thrown.
-    ignore: The save operation is expected to not save the contents of the SparkDataFrame and to not change the existing data.
+    Save DataFrame to SQL database
+    Args:
+        df: DataFrame to save
+        mode: option for saving the df 
+            'append' Contents of this SparkDataFrame are expected to be appended to existing data.
+            'overwrite' Existing data is expected to be overwritten by the contents of this SparkDataFrame.
+            'error' An exception is expected to be thrown.
+            'ignore' The save operation is expected to not save the contents of the SparkDataFrame and to not change the existing data.
+        table: 'amazon_reviews' or 'reddit-comments' to specify which table to work on
     """
     print("Save data to postgres.")
     url = "jdbc:postgresql://ec2-44-231-209-180.us-west-2.compute.amazonaws.com:5432/{}".format(dbname)
@@ -172,7 +217,19 @@ def saveToDB(df, mode, table):
     df.write.jdbc(url=url, table=table, mode=mode, properties=properties)
 
 def main(table, reddit_year):
-    # Define path for the datasets
+    """
+    Process on Spark
+    Steps:
+        1. Define path for the datasets
+        2. Read in names datasets
+        3. Tag the names for the reviews
+        4. Find word count for every review
+        5. Perform sentiment analysis
+        6. Save result to PostgreSQL
+    Args:
+        table: input from args, can be 'amazon' or 'reddit'
+        reddit_year: for reddit only, specify which year to work on
+    """
     path_VGNames = 's3a://insight-vgsales/vgsales-12-4-2019.csv'
     path_amazon_reviews = 's3a://insight-amazon-reviews/product_category=Video_Games/*.parquet'
     path_reddit_comments = 's3a://insight-reddit-comments-raw/{}/*.parquet'.format(reddit_year)
@@ -189,25 +246,17 @@ def main(table, reddit_year):
     if table == "amazon":
         df_amazon = readData(path_amazon_reviews, ["product_title", "review_body"], "parquet")
         print("Processing amazon reviews data...")
-        # Tag the names for the reviews
         df_proc = findName(df_amazon, names, "amazon_reviews")
-        # Word count for every row
         df_proc = wordCount(df_proc, "review_body")
-        # Sentiment analysis
         df_proc = sentimentAnalysis(df_proc, show = False, table = "amazon_reviews")
-        # Save to PostgreSQL
         saveToDB(df_proc, mode = "overwrite", table = "amazon_reviews")
 
     elif table == 'reddit':
         df_reddit = readData(path_reddit_comments, ["body"], "parquet")
         print("Processing reddit comments data...")
-        # Tag the names for the reviews
         df_proc = findName(df_reddit, names, "reddit_comments")
-        # Word count for every row
         df_proc = wordCount(df_proc, "body")
-        # Sentiment analysis
         df_proc = sentimentAnalysis(df_proc, show = False, table = "reddit_comments")
-        # Save to PostgreSQL
         saveToDB(df_proc, mode = "overwrite", table = "reddit_comments")
 
 if __name__ == "__main__":
@@ -215,6 +264,7 @@ if __name__ == "__main__":
     try:
         reddit_year = int(sys.argv[2])
     except:
-        print("Please enter year for reddit review!")
+        reddit_year = "2014"
+        print("Please enter year if you want to process reddit review!")
     main(table, reddit_year)
     print("Finished...!")
