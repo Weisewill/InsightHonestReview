@@ -26,12 +26,12 @@ s3 = boto3.client('s3',
 conf = (SparkConf() \
         .setAppName("Process") \
         .set("spark.executor.instances", "4") \
-        .set("spark.driver.memory", "50g") 
+        .set("spark.driver.memory", "60g") 
         .set("spark.executor.memory", "6g"))
 sc = SparkContext(conf=conf)
 sc.setLogLevel("ERROR")
 sqlContext = SQLContext(sc)
-spark = SparkSession.builder.appName('Reddit Comments ETL').getOrCreate()
+spark = SparkSession.builder.appName('Process data').getOrCreate()
 spark = sparknlp.start()
 spark.conf.set("spark.sql.session.timeZone", "America/Los_Angeles")
 
@@ -133,13 +133,14 @@ def calculateScore(col1, col2):
     count = 0
     for item1, item2 in zip(col1, col2):
         tmp1 = -1 if item1 == "negative" else 1
-        #if float(item2["confidence"]) >= 0.6:
+        #if float(item2["confidence"]) > 0.75:
         #    tmp2 = float(item2["confidence"])
-        #elif float(item2["confidence"]) >= 0.4:
+        #elif float(item2["confidence"]) > 0.5 and float(item2["confidence"]) <= 0.75:
         #    tmp2 = float(item2["confidence"]) / 2.0
         #else:
-        #    tmp2 = float(item2["confidence"]) / 3.0
-        tmp2 = float(item2["confidence"]) if float(item2["confidence"]) >= 0.6 else 0.0
+        #    tmp2 = 0.0
+        tmp = (float(item2["confidence"]) - 0.6) * 5.0 / 3.0
+        tmp2 = tmp if tmp > 0.0 else 0.0
         if tmp2 > 0.0:
             score += tmp1 * tmp2
             count += 1
@@ -171,6 +172,12 @@ def sentimentAnalysis(df, show, table):
     #pipeline = PipelineModel.load("hdfs://10.0.0.12:9000/user/analyze_sentiment_en_2.1.0_2.4_1563204637489/")
     pipeline = PipelineModel.load("hdfs://10.0.0.12:9000/user/analyze_sentiment_en_2.4.0_2.4_1580483464667/")
     result = pipeline.transform(df)
+    
+    ### start test ###
+    #result = pipeline.annotate(df, "text")
+    #result.printSchema()
+    #result.show()
+    ### end test ###
 
     result = result.selectExpr(colName, "name", "word_count", "sentiment.result AS result", "sentiment.metadata AS confidence")
 
@@ -213,7 +220,7 @@ def saveToDB(df, mode, table):
     #data.option("batchsize", 10000000).jdbc(url=url, table="amazon_reviews", mode=mode, properties=properties)
     #df.printSchema()
     #df.show(truncate=False)
-    df = df.repartition(100)
+    df = df.repartition(20)
     df.write.jdbc(url=url, table=table, mode=mode, properties=properties)
 
 def main(table, reddit_year):
@@ -237,7 +244,7 @@ def main(table, reddit_year):
 
     # Read in names datasets
     df_name = readData(path_VGNames, ["Name"], "CSV")
-    Names = getNameList(df_name, 10, 30)
+    Names = getNameList(df_name, 30, 40)
     names = [Name.lower() for Name in Names]
     # Some test names
     #Names = ["The Legend of Zelda", "Bloodborne"] 
