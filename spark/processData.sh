@@ -1,1 +1,1 @@
-spark-submit sentimentAnalysis.py reddit 2015
+spark-submit sentimentAnalysis.py amazon 2015

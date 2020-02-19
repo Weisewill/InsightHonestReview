@@ -137,7 +137,7 @@ def calculateScore(col1, col2):
     count = 0
     for item1, item2 in zip(col1, col2):
         sign = -1.0 if item1 == "negative" else 1.0
-        score += sign * np.log(item2)
+        score += sign * log(item2)
         count += 1
 
     return score / float(count) if count > 0 else 0.0
