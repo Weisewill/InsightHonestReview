@@ -1,4 +1,5 @@
-# Import Spark NLP            
+# Import Spark NLP           
+import numpy as np
 from sparknlp.base import *
 from sparknlp.annotator import *
 from sparknlp.embeddings import *
@@ -120,6 +121,9 @@ def getNameList(df, num, length):
 def calculateScore(col1, col2):
     """
     Calculate the sentiment analysis score
+    score = p - n
+    p - n = + ln(confidence) if "positive"
+          = - ln(confidence) if "negative"
 
     Args:
         col1: a string could be 'positive' or 'negative' sentiment
@@ -132,18 +136,10 @@ def calculateScore(col1, col2):
     score = 0
     count = 0
     for item1, item2 in zip(col1, col2):
-        tmp1 = -1 if item1 == "negative" else 1
-        #if float(item2["confidence"]) > 0.75:
-        #    tmp2 = float(item2["confidence"])
-        #elif float(item2["confidence"]) > 0.5 and float(item2["confidence"]) <= 0.75:
-        #    tmp2 = float(item2["confidence"]) / 2.0
-        #else:
-        #    tmp2 = 0.0
-        tmp = (float(item2["confidence"]) - 0.6) * 5.0 / 3.0
-        tmp2 = tmp if tmp > 0.0 else 0.0
-        if tmp2 > 0.0:
-            score += tmp1 * tmp2
-            count += 1
+        sign = -1.0 if item1 == "negative" else 1.0
+        score += sign * np.log(item2)
+        count += 1
+
     return score / float(count) if count > 0 else 0.0
 
 def sentimentAnalysis(df, show, table):
