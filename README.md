@@ -33,11 +33,11 @@ Sometimes we have short weekends or holidays not enough for trips to facinating 
   
 ## Sentiment Analysis
   ### Spark-NLP (https://nlp.johnsnowlabs.com/)
-    - NLP: Sentiment analysis 
-    - Sentence Embeddings
-    - Tokenizer
-    - Spell Checker
-    - Vivikn Sentiment Analyzer
+  - NLP: Sentiment analysis 
+  - Sentence Embeddings
+  - Tokenizer
+  - Spell Checker
+  - Vivikn Sentiment Analyzer
 
 
 ## Presentation
