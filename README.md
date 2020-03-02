@@ -38,7 +38,7 @@ Sometimes we have short weekends or holidays not enough for trips to facinating 
   - Tokenizer
   - Spell Checker
   - Vivikn Sentiment Analyzer
-
+  ![](/fig/Vivekn_Sentiment_analysis.jpg)
 
 ## Presentation
 http://bit.ly/honest-review-slides
