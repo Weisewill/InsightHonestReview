@@ -30,6 +30,15 @@ Sometimes we have short weekends or holidays not enough for trips to facinating 
   - Clean large amount of data, over 3 TB after decompression
   - Process text data to extrct useful informations, eg. finding the name of the product and count # of words in a review
   - Perform sentiment analysis using natural language processing pipeline
+  
+## Sentiment Analysis
+  ### Spark-NLP (https://nlp.johnsnowlabs.com/)
+    - NLP: Sentiment analysis 
+    - Sentence Embeddings
+    - Tokenizer
+    - Spell Checker
+    - Vivikn Sentiment Analyzer
+
 
 ## Presentation
 http://bit.ly/honest-review-slides
