@@ -24,7 +24,7 @@ Sometimes we have short weekends or holidays not enough for trips to facinating 
   - Reddit (https://files.pushshift.io/reddit/comments/)
 
 ## Tech stack
-![](/fig/HonestReview_tech_stack.jpg)
+  ![](/fig/HonestReview_tech_stack.jpg)
 
 ## Challenges
   - Clean large amount of data, over 3 TB after decompression
@@ -37,8 +37,12 @@ Sometimes we have short weekends or holidays not enough for trips to facinating 
   - Sentence Embeddings
   - Tokenizer
   - Spell Checker
-  - Vivekn Sentiment Analyzer
-![](/fig/Vivekn_Sentiment_Analysis.jpg)
+  - Vivekn Sentiment Analyzer  
+    Sources:
+    https://arxiv.org/pdf/1305.6143.pdf  
+    https://github.com/vivekn/sentiment/blob/master/pretrained.py  
+
+  ![](/fig/Vivekn_Sentiment_Analysis.png)
 
 ## Presentation
 http://bit.ly/honest-review-slides
