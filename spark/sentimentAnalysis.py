@@ -7,12 +7,11 @@ from sparknlp.pretrained import PretrainedPipeline
 import sparknlp
 import pyspark
 import pandas
+import math
 from pyspark.sql import SparkSession, Row
 from pyspark import SparkConf, SparkContext, SQLContext
-from pyspark.sql.functions import map_values, expr, col, when, udf, lower, size
 from pyspark.sql.types import *
 import pyspark.sql.functions as f
-from pyspark.sql.functions import lit
 from pyspark.sql import DataFrameWriter
 import boto3
 sys.path.insert(1, '/home/ubuntu/config/')
@@ -26,9 +25,9 @@ s3 = boto3.client('s3',
 # Configure spark SQL
 conf = (SparkConf() \
         .setAppName("Process") \
-        .set("spark.executor.instances", "4") \
-        .set("spark.driver.memory", "60g") 
-        .set("spark.executor.memory", "6g"))
+        .set("spark.executor.instances", "1") \
+        .set("spark.default.parallelism", "10")
+        .set("spark.executor.memory", "12g"))
 sc = SparkContext(conf=conf)
 sc.setLogLevel("ERROR")
 sqlContext = SQLContext(sc)
@@ -60,7 +59,7 @@ def findName(df, names, table):
     Returns:
         df: a DataFrame with one more column 'name' for the product name
     """
-    df = df.withColumn("name", lit("Null"))
+    df = df.withColumn("name", f.lit("Null"))
     if table == "amazon_reviews":
         df = df.rdd.toDF(["product_title", "review_body", "name"])
         df_line = df.select("product_title", "review_body", "name")
@@ -73,7 +72,7 @@ def findName(df, names, table):
         colName = "body"
     for name in names:
         print("Finding name: " + name)
-        df_line = df_line.withColumn("name", when(col(colName).like("%"+name+"%"), name).otherwise(df_line.name))
+        df_line = df_line.withColumn("name", f.when(f.col(colName).like("%"+name+"%"), name).otherwise(df_line.name))
     df_line = df_line.filter(df_line.name != "Null")
     return df_line
 
@@ -100,7 +99,7 @@ def readData(path, cols, dataType):
     df = df.select(cols)
     return df
 
-def getNameList(df, num, length):
+def getNameList(df, num, length, VGStartRank):
     """
     Steps:
         1. Get the first num popular games
@@ -109,10 +108,12 @@ def getNameList(df, num, length):
         df: input DataFrame
         num: # of name to pick
         length: length limit for the names
+        VGStartRank: Starting rank for video games.
     Return:
         A list of names
     """
-    df_pandas = df.where( f.length("Name")  <= length ).toPandas()[0:num]
+    df_pandas = df.where( f.length("Name")  <= length ).toPandas()[:num]
+    df_pandas = df_pandas.drop_duplicates(['Name'])
     idx = df_pandas.Name.str.len().sort_values().index
     df_pandas = df_pandas.reindex(idx)
     print(df_pandas)
@@ -137,7 +138,9 @@ def calculateScore(col1, col2):
     count = 0
     for item1, item2 in zip(col1, col2):
         sign = -1.0 if item1 == "negative" else 1.0
-        score += sign * log(item2)
+        tmp = float(item2['confidence'])
+        tmp = tmp*tmp*tmp*tmp
+        score += sign*tmp
         count += 1
 
     return score / float(count) if count > 0 else 0.0
@@ -160,7 +163,7 @@ def sentimentAnalysis(df, show, table):
     elif table == "reddit_comments":
         colName = "body"
 
-    df = df.withColumn("text", col(colName))
+    df = df.withColumn("text", f.col(colName))
     df = df.na.drop()
     #df.show()
 
@@ -175,9 +178,9 @@ def sentimentAnalysis(df, show, table):
     #result.show()
     ### end test ###
 
-    result = result.selectExpr(colName, "name", "word_count", "sentiment.result AS result", "sentiment.metadata AS confidence")
-
-    score = udf(lambda col1, col2: calculateScore(col1, col2), FloatType())
+    result = result.selectExpr(colName,"name", "word_count", "sentiment.result AS result", "sentiment.metadata AS confidence")
+    
+    score = f.udf(lambda col1, col2: calculateScore(col1, col2), FloatType())
     
     df_sentiment = result.withColumn("score", score( result.result, result.confidence ))
 
@@ -216,10 +219,10 @@ def saveToDB(df, mode, table):
     #data.option("batchsize", 10000000).jdbc(url=url, table="amazon_reviews", mode=mode, properties=properties)
     #df.printSchema()
     #df.show(truncate=False)
-    df = df.repartition(20)
+    #df = df.repartition(20)
     df.write.jdbc(url=url, table=table, mode=mode, properties=properties)
 
-def main(table, reddit_year):
+def main(table, mode, VGStartRank, reddit_year, reddit_month):
     """
     Process on Spark
     Steps:
@@ -231,16 +234,20 @@ def main(table, reddit_year):
         6. Save result to PostgreSQL
     Args:
         table: input from args, can be 'amazon' or 'reddit'
+        mode: see description in saveToDB()
+        VGStartRank: Starting rank for video game.
         reddit_year: for reddit only, specify which year to work on
+        reddit_month: for reddit only, specify which month to work on
     """
     path_VGNames = 's3a://insight-vgsales/vgsales-12-4-2019.csv'
     path_amazon_reviews = 's3a://insight-amazon-reviews/product_category=Video_Games/*.parquet'
-    path_reddit_comments = 's3a://insight-reddit-comments-raw/{}/*.parquet'.format(reddit_year)
+    path_reddit_comments = 's3a://insight-reddit-comments-raw/{}/*{}.parquet' \
+        .format(reddit_year, "0"+str(reddit_month) if reddit_month < 10 else str(reddit_month))
     cols = ["Name", "word_count", "sentiment"]
 
     # Read in names datasets
     df_name = readData(path_VGNames, ["Name"], "CSV")
-    Names = getNameList(df_name, 30, 40)
+    Names = getNameList(df_name, 100, 30, int(VGStartRank))
     names = [Name.lower() for Name in Names]
     # Some test names
     #Names = ["The Legend of Zelda", "Bloodborne"] 
@@ -252,7 +259,7 @@ def main(table, reddit_year):
         df_proc = findName(df_amazon, names, "amazon_reviews")
         df_proc = wordCount(df_proc, "review_body")
         df_proc = sentimentAnalysis(df_proc, show = False, table = "amazon_reviews")
-        saveToDB(df_proc, mode = "overwrite", table = "amazon_reviews")
+        saveToDB(df_proc, mode = mode, table = "amazon_reviews")
 
     elif table == 'reddit':
         df_reddit = readData(path_reddit_comments, ["body"], "parquet")
@@ -260,14 +267,30 @@ def main(table, reddit_year):
         df_proc = findName(df_reddit, names, "reddit_comments")
         df_proc = wordCount(df_proc, "body")
         df_proc = sentimentAnalysis(df_proc, show = False, table = "reddit_comments")
-        saveToDB(df_proc, mode = "overwrite", table = "reddit_comments")
+        saveToDB(df_proc, mode = mode, table = "reddit_comments")
 
 if __name__ == "__main__":
     table = sys.argv[1]
     try:
-        reddit_year = int(sys.argv[2])
+        mode = sys.argv[2]
     except:
-        reddit_year = "2014"
-        print("Please enter year if you want to process reddit review!")
-    main(table, reddit_year)
+        mode = 'append'
+        print('Using default mode: append for writting to database.')
+    try:
+        VGStartRank = int(sys.argv[3])
+    except:
+        VGStartRank = 0
+        print("Please enter starting rank for video game name.")
+    try:
+        reddit_year = int(sys.argv[4])
+    except:
+        reddit_year = 2014
+        print("Please enter year if you want to process reddit review! Using default year 2014.")
+    try:
+        reddit_month = int(sys.argv[5])
+    except:
+        reddit_month = 1
+        print("Please enter month if you want to process reddit review! Using default month 1.")
+    
+    main(table, mode, VGStartRank, reddit_year, reddit_month)
     print("Finished...!")
